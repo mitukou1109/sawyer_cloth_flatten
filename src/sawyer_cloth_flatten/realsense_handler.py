@@ -7,6 +7,7 @@ import rospy
 from cv_bridge import CvBridge
 from geometry_msgs import msg as geometry_msgs
 from sensor_msgs import msg as sensor_msgs
+from std_msgs import msg as std_msgs
 import tf2_geometry_msgs
 import tf2_ros
 
@@ -15,6 +16,7 @@ from sawyer_cloth_flatten.srv import Get3DPointFromPixel, GetHighestPositionOfCl
 class RealSenseHandler:
     def __init__(self):
         self._cloth_contour_image_pub = rospy.Publisher('cloth_contour/image', sensor_msgs.Image, queue_size=10)
+        self._cloth_contour_area_pub = rospy.Publisher('cloth_contour/area', std_msgs.Float32, queue_size=10)
         self._camera_info_sub = rospy.Subscriber('/camera/color/camera_info', sensor_msgs.CameraInfo, self._camera_info_cb)
         self._color_image_sub_ = rospy.Subscriber('/camera/color/image_raw', sensor_msgs.Image, self._color_image_cb)
         self._depth_image_sub = rospy.Subscriber('/camera/aligned_depth_to_color/image_raw', sensor_msgs.Image, self._depth_image_cb)
@@ -59,6 +61,7 @@ class RealSenseHandler:
             return None
 
         cloth_contour = max(contours, key=cv.contourArea)
+        self._cloth_contour_area_pub.publish(cv.contourArea(cloth_contour))
 
         depth_image = self._cv_bridge.imgmsg_to_cv2(self._depth_image).copy()
         highest_pixel_of_cloth = None
