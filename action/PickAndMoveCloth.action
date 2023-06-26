@@ -1,0 +1,4 @@
+geometry_msgs/Point pick_position
+geometry_msgs/Point goal_position
+---
+---

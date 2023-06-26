@@ -1,0 +1,15 @@
+#!/usr/bin/env python
+
+import rospy
+
+from sawyer_cloth_flatten.realsense_handler import RealSenseHandler
+
+def main():
+    rospy.init_node('realsense_handler_node')
+
+    realsense_handler = RealSenseHandler()
+
+    rospy.spin()
+
+if __name__ == '__main__':
+    main()

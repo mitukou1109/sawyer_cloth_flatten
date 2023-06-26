@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>sawyer_cloth_flatten</name>
+  <version>1.0.0</version>
+  <description>Implements cloth-flattening task for Sawyer.</description>
+
+  <maintainer email="mitukou1109@gmail.com">Mitsuhiro Sakamoto</maintainer>
+
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>message_generation</build_depend>
+
+  <depend>roscpp</depend>
+  <depend>rospy</depend>
+  <depend>actionlib</depend>
+  <depend>geometry_msgs</depend>
+
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>intera_interface</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
+  <exec_depend>moveit_commander</exec_depend>
+  <exec_depend>python-opencv</exec_depend>
+  <exec_depend>robotiq_2f_gripper_control</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+</package>

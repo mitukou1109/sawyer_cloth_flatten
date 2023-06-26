@@ -1,0 +1,4 @@
+uint16 pixel_x
+uint16 pixel_y
+---
+geometry_msgs/PointStamped point
