@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import cv2 as cv
+import numpy as np
 
 import rospy
 
@@ -17,7 +18,9 @@ from sawyer_cloth_flatten.srv import Get3DPointFromPixel, GetHighestPositionOfCl
 
 class RealSenseHandler:
     def __init__(self):
+        self._FIND_CLOTH_CONTOUR_PERIOD = rospy.Duration(secs=0.1)
         self._IMAGE_BINARIZE_THRESHOLD = 150
+
         self._cloth_contour_image_pub = rospy.Publisher('cloth_contour/image', sensor_msgs.Image, queue_size=10)
         self._cloth_contour_area_pub = rospy.Publisher('cloth_contour/area', std_msgs.Float32, queue_size=10)
         self._camera_info_sub = rospy.Subscriber('/camera/color/camera_info', sensor_msgs.CameraInfo, self._camera_info_cb)
@@ -35,6 +38,8 @@ class RealSenseHandler:
 
         self._tf_buffer = tf2_ros.Buffer()
         self._tf_listener = tf2_ros.TransformListener(self._tf_buffer)
+
+        self._find_cloth_contour_timer = rospy.Timer(self._FIND_CLOTH_CONTOUR_PERIOD, lambda _: self._find_cloth_contour())
 
     def _camera_info_cb(self, camera_info):
         self._intrinsics = camera_info.K
@@ -56,42 +61,48 @@ class RealSenseHandler:
         return config
 
     def get_highest_position_of_cloth(self):
-        orig_image = self._cv_bridge.imgmsg_to_cv2(self._color_image, 'rgb8')
+        if self._cloth_contour is None:
+            rospy.logerr('No cloth contour available')
+            return None
 
-        hsv_image = cv.cvtColor(orig_image, cv.COLOR_RGB2HSV)
+        depth_image = self._cv_bridge.imgmsg_to_cv2(self._depth_image).copy()
+        mask_image = cv.fillPoly(np.zeros(depth_image.shape, np.uint8), self._cloth_contour, color=255)
+        highest_pixel_of_cloth = None
+        while highest_pixel_of_cloth is None:
+            highest_val, _, highest_pixel, _ = cv.minMaxLoc(depth_image, mask_image)
+            if highest_val > 0 and cv.pointPolygonTest(self._cloth_contour, highest_pixel, measureDist=False) >= 0:
+                highest_pixel_of_cloth = highest_pixel
+            else:
+                depth_image[tuple(reversed(highest_pixel))] = 65535
+
+        return self._get_3d_point_from_pixel(*highest_pixel_of_cloth)
+
+    def _find_cloth_contour(self):
+        if not hasattr(self, '_color_image'):
+            return
+
+        rgb_image = self._cv_bridge.imgmsg_to_cv2(self._color_image, 'rgb8')
+
+        hsv_image = cv.cvtColor(rgb_image, cv.COLOR_RGB2HSV)
         _, _, v_image = cv.split(hsv_image)
         v_image = cv.blur(v_image, (9, 9))
         # _, thresh = cv.threshold(v_image, 0, 255, cv.THRESH_OTSU)
         _, thresh = cv.threshold(v_image, self._IMAGE_BINARIZE_THRESHOLD, 255, cv.THRESH_BINARY_INV)
 
         _, contours, _ = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
-        if not contours:
-            rospy.logwarn('Failed to detect cloth')
-            return None
+        cloth_contour_image = rgb_image.copy()
 
-        cloth_contour = max(contours, key=cv.contourArea)
-        self._cloth_contour_area_pub.publish(cv.contourArea(cloth_contour))
-
-        depth_image = self._cv_bridge.imgmsg_to_cv2(self._depth_image).copy()
-        highest_pixel_of_cloth = None
-        while highest_pixel_of_cloth is None:
-            highest_val, _, highest_pixel, _ = cv.minMaxLoc(depth_image)
-            print(highest_val, highest_pixel)
-            if highest_val >= 5 and cv.pointPolygonTest(cloth_contour, highest_pixel, measureDist=False) >= 0:
-                highest_pixel_of_cloth = highest_pixel
-            else:
-                depth_image[tuple(reversed(highest_pixel))] = 2000
-
-        cloth_contour_image = orig_image.copy()
-        cv.polylines(cloth_contour_image, cloth_contour, isClosed=True, color=(0, 0, 255), thickness=5)
-        cv.circle(cloth_contour_image, highest_pixel_of_cloth, radius=5, color=(255, 0, 0), thickness=-1)
+        if contours:
+            self._cloth_contour = max(contours, key=cv.contourArea)
+            self._cloth_contour_area_pub.publish(cv.contourArea(self._cloth_contour))
+            cv.polylines(cloth_contour_image, self._cloth_contour, isClosed=True, color=(0, 0, 255), thickness=5)
+        else:
+            self._cloth_contour = None
 
         cloth_contour_image_msg = self._cv_bridge.cv2_to_imgmsg(cloth_contour_image, self._color_image.encoding)
         cloth_contour_image_msg.header.stamp = rospy.Time.now()
         cloth_contour_image_msg.header.frame_id = self._color_image.header.frame_id
         self._cloth_contour_image_pub.publish(cloth_contour_image_msg)
-
-        return self._get_3d_point_from_pixel(*highest_pixel_of_cloth)
 
     def _get_3d_point_from_pixel(self, x, y):
         depth_image = self._cv_bridge.imgmsg_to_cv2(self._depth_image)
