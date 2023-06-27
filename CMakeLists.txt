@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   actionlib
+  dynamic_reconfigure
   geometry_msgs
   message_generation
 )
@@ -30,11 +31,16 @@ generate_messages(
     geometry_msgs
 )
 
+generate_dynamic_reconfigure_options(
+  cfg/RealSenseHandler.cfg
+)
+
 catkin_package(
   CATKIN_DEPENDS
     roscpp
     rospy
     actionlib
+    dynamic_reconfigure
     message_runtime
 )
 

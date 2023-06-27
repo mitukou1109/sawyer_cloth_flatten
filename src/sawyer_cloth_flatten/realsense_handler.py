@@ -5,16 +5,19 @@ import cv2 as cv
 import rospy
 
 from cv_bridge import CvBridge
+from dynamic_reconfigure.server import Server as DynamicReconfigureServer
 from geometry_msgs import msg as geometry_msgs
 from sensor_msgs import msg as sensor_msgs
 from std_msgs import msg as std_msgs
 import tf2_geometry_msgs
 import tf2_ros
 
+from sawyer_cloth_flatten.cfg import RealSenseHandlerConfig
 from sawyer_cloth_flatten.srv import Get3DPointFromPixel, GetHighestPositionOfCloth
 
 class RealSenseHandler:
     def __init__(self):
+        self._IMAGE_BINARIZE_THRESHOLD = 150
         self._cloth_contour_image_pub = rospy.Publisher('cloth_contour/image', sensor_msgs.Image, queue_size=10)
         self._cloth_contour_area_pub = rospy.Publisher('cloth_contour/area', std_msgs.Float32, queue_size=10)
         self._camera_info_sub = rospy.Subscriber('/camera/color/camera_info', sensor_msgs.CameraInfo, self._camera_info_cb)
@@ -25,6 +28,8 @@ class RealSenseHandler:
             'get_3d_point_from_pixel', Get3DPointFromPixel, self._get_3d_point_from_pixel_cb)
         self._get_highest_position_of_cloth_service_server = rospy.Service(
             'get_highest_position_of_cloth', GetHighestPositionOfCloth, self._get_highest_position_of_cloth_cb)
+
+        self._dynamic_reconfigure_server = DynamicReconfigureServer(RealSenseHandlerConfig, self._dynamic_reconfigure_cb)
 
         self._cv_bridge = CvBridge()
 
@@ -46,6 +51,10 @@ class RealSenseHandler:
     def _get_highest_position_of_cloth_cb(self, request):
         return self.get_highest_position_of_cloth()
 
+    def _dynamic_reconfigure_cb(self, config, level):
+        self._IMAGE_BINARIZE_THRESHOLD = config['image_binarize_threshold']
+        return config
+
     def get_highest_position_of_cloth(self):
         orig_image = self._cv_bridge.imgmsg_to_cv2(self._color_image, 'rgb8')
 
@@ -53,7 +62,7 @@ class RealSenseHandler:
         _, _, v_image = cv.split(hsv_image)
         v_image = cv.blur(v_image, (9, 9))
         # _, thresh = cv.threshold(v_image, 0, 255, cv.THRESH_OTSU)
-        _, thresh = cv.threshold(v_image, 150, 255, cv.THRESH_BINARY_INV)
+        _, thresh = cv.threshold(v_image, self._IMAGE_BINARIZE_THRESHOLD, 255, cv.THRESH_BINARY_INV)
 
         _, contours, _ = cv.findContours(thresh, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
         if not contours:
