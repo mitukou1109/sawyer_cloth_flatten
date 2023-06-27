@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_python_setup()
 
 add_action_files(FILES
+  ApplyDisplacement.action
   MoveToPosition.action
   PickAndMoveCloth.action
 )

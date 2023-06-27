@@ -18,7 +18,7 @@ from robotiq_2f_gripper_control.msg._Robotiq2FGripper_robot_output \
 import intera_interface
 from intera_interface import CHECK_VERSION
 
-from sawyer_cloth_flatten.msg import MoveToPositionAction
+from sawyer_cloth_flatten.msg import ApplyDisplacementAction, MoveToPositionAction
 from sawyer_cloth_flatten.srv import CloseGripper, OpenGripper, ResetSawyer
 
 class SawyerController:
@@ -41,6 +41,8 @@ class SawyerController:
         self._open_gripper_service_server = rospy.Service(
             'reset_sawyer', ResetSawyer, self._reset_sawyer_cb)
 
+        self._apply_displacement_action_server = actionlib.SimpleActionServer(
+            'apply_displacement', ApplyDisplacementAction, self._apply_displacement_execute_cb, auto_start=False)
         self._move_to_position_action_server = actionlib.SimpleActionServer(
             'move_to_position', MoveToPositionAction, self._move_to_position_execute_cb, auto_start=False)
 
@@ -71,6 +73,7 @@ class SawyerController:
 
         rospy.sleep(3)
         self.reset()
+        self._apply_displacement_action_server.start()
         self._move_to_position_action_server.start()
 
         rospy.loginfo('Robot ready')
@@ -82,16 +85,24 @@ class SawyerController:
     def _open_gripper_cb(self, request):
         self.open_gripper()
         return ()
-    
+
     def _reset_sawyer_cb(self, request):
         self.reset()
         return ()
+
+    def _apply_displacement_execute_cb(self, goal):
+        if self.apply_displacement(goal.displacement):
+            self._apply_displacement_action_server.set_succeeded()
+        else:
+            self._apply_displacement_action_server.set_aborted()
+            rospy.logwarn('Aborted goal')
 
     def _move_to_position_execute_cb(self, goal):
         if self.move_to_position(goal.position):
             self._move_to_position_action_server.set_succeeded()
         else:
             self._move_to_position_action_server.set_aborted()
+            rospy.logwarn('Aborted goal')
 
     def _set_gripper(self, rPR):
         self._gripper_command.rPR = rPR
@@ -119,12 +130,20 @@ class SawyerController:
     def open_gripper(self):
         self._set_gripper(0)
 
+    def apply_displacement(self, displacement):
+        goal_position = self._sawyer.get_current_pose().pose.position
+        goal_position.x += displacement.x
+        goal_position.y += displacement.y
+        goal_position.z += displacement.z - self.GRIPPER_Z_OFFSET
+
+        return self.move_to_position(goal_position)
+
     def move_to_position(self, goal_position):
         goal_position.z += self.GRIPPER_Z_OFFSET
         if not (self.MIN_POSITION.x < goal_position.x < self.MAX_POSITION.x and
                 self.MIN_POSITION.y < goal_position.y < self.MAX_POSITION.y and
                 self.MIN_POSITION.z < goal_position.z < self.MAX_POSITION.z):
-            rospy.logerr(str(goal_position) + 'out of range from ' + str(self.MIN_POSITION) + ' to ' + str(self.MAX_POSITION))
+            rospy.logerr(str(goal_position) + ' out of range from ' + str(self.MIN_POSITION) + ' to ' + str(self.MAX_POSITION))
             return False
 
         quat = transformations.quaternion_from_euler(0, math.pi, 0)
