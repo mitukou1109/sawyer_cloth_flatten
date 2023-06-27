@@ -20,7 +20,7 @@ class SawyerClothFlatten(object):
 
         self._pick_and_move_cloth_action_server.start()
 
-    def _pick_and_move_cloth(self, pick_position, goal_position):
+    def _pick_and_move_cloth(self, pick_position, displacement):
         self._sawyer_controller.open_gripper()
 
         if not self._sawyer_controller.move_to_position(pick_position):
@@ -28,7 +28,7 @@ class SawyerClothFlatten(object):
 
         self._sawyer_controller.close_gripper()
 
-        if not self._sawyer_controller.move_to_position(goal_position):
+        if not self._sawyer_controller.apply_displacement(displacement):
             return False
 
         self._sawyer_controller.open_gripper()
@@ -36,7 +36,7 @@ class SawyerClothFlatten(object):
         return True
 
     def pick_and_move_cloth_execute_cb(self, goal):
-        if self._pick_and_move_cloth(goal.pick_position, goal.goal_position):
+        if self._pick_and_move_cloth(goal.pick_position, goal.displacement):
             self._pick_and_move_cloth_action_server.set_succeeded()
         else:
             self._pick_and_move_cloth_action_server.set_aborted()
