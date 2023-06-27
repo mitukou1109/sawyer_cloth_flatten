@@ -24,9 +24,9 @@ from sawyer_cloth_flatten.srv import CloseGripper, OpenGripper, ResetSawyer
 class SawyerController:
     def __init__(self, joint_state_publish_rate=10.0):
         self.GRIPPER_Z_OFFSET = 0.18
-        self.INITIAL_POSITION = geometry_msgs.Point(x=0.45, y=0.16, z=0.40-self.GRIPPER_Z_OFFSET)
-        self.MIN_POSITION = geometry_msgs.Point(x=0.25, y=-0.4, z=0.09)
-        self.MAX_POSITION = geometry_msgs.Point(x=0.75, y=0.4, z=0.6)
+        self.INITIAL_POSITION = (0.45, 0.16, 0.40-self.GRIPPER_Z_OFFSET)
+        self.MIN_POSITION = (0.25, -0.4, 0.09)
+        self.MAX_POSITION = (0.75, 0.4, 0.6)
         self._joint_state_publish_rate = joint_state_publish_rate
 
         self._joint_state_publish_rate_pub = rospy.Publisher(
@@ -112,7 +112,7 @@ class SawyerController:
     def reset(self):
         self.open_gripper()
         self._right_arm.move_to_neutral()
-        self.move_to_position(self.INITIAL_POSITION)
+        self.move_to_position(geometry_msgs.Point(*self.INITIAL_POSITION))
 
     def on_shutdown(self):
         rate = rospy.Rate(self._joint_state_publish_rate)
@@ -140,9 +140,9 @@ class SawyerController:
 
     def move_to_position(self, goal_position):
         goal_position.z += self.GRIPPER_Z_OFFSET
-        if not (self.MIN_POSITION.x < goal_position.x < self.MAX_POSITION.x and
-                self.MIN_POSITION.y < goal_position.y < self.MAX_POSITION.y and
-                self.MIN_POSITION.z < goal_position.z < self.MAX_POSITION.z):
+        if not (self.MIN_POSITION[0] < goal_position.x < self.MAX_POSITION[0] and
+                self.MIN_POSITION[1] < goal_position.y < self.MAX_POSITION[1] and
+                self.MIN_POSITION[2] < goal_position.z < self.MAX_POSITION[2]):
             rospy.logerr(str(goal_position) + ' out of range from ' + str(self.MIN_POSITION) + ' to ' + str(self.MAX_POSITION))
             return False
 
