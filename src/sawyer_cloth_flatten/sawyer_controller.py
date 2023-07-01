@@ -25,8 +25,7 @@ class SawyerController:
     def __init__(self, joint_state_publish_rate=10.0):
         self.GRIPPER_Z_OFFSET = 0.18
         self.INITIAL_POSITION = (0.45, 0.16, 0.40-self.GRIPPER_Z_OFFSET)
-        self.MIN_POSITION = (0.25, -0.4, 0.09)
-        self.MAX_POSITION = (0.75, 0.4, 0.6)
+
         self._joint_state_publish_rate = joint_state_publish_rate
 
         self._joint_state_publish_rate_pub = rospy.Publisher(
@@ -161,11 +160,6 @@ class SawyerController:
 
     def move_to_position(self, goal_position):
         goal_position.z += self.GRIPPER_Z_OFFSET
-        if not (self.MIN_POSITION[0] < goal_position.x < self.MAX_POSITION[0] and
-                self.MIN_POSITION[1] < goal_position.y < self.MAX_POSITION[1] and
-                self.MIN_POSITION[2] < goal_position.z < self.MAX_POSITION[2]):
-            rospy.logerr(str(goal_position) + ' out of range from ' + str(self.MIN_POSITION) + ' to ' + str(self.MAX_POSITION))
-            return False
 
         quat = transformations.quaternion_from_euler(0, math.pi, 0)
         goal_pose = geometry_msgs.Pose(
@@ -174,11 +168,11 @@ class SawyerController:
         self._sawyer.set_goal_tolerance(0.001)
         self._sawyer.set_pose_target(goal_pose)
 
-        self._sawyer.go(wait=True)
+        succeeded = self._sawyer.go(wait=True)
         self._sawyer.stop()
         self._sawyer.clear_pose_targets()
 
-        return True
+        return succeeded
 
 def main():
     rospy.init_node('sawyer_controller')
