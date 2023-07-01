@@ -8,7 +8,7 @@ import actionlib
 import geometry_msgs
 from geometry_msgs import msg as geometry_msgs
 import moveit_commander
-from moveit_commander import MoveGroupCommander
+from moveit_commander import MoveGroupCommander, PlanningSceneInterface
 from std_msgs import msg as std_msgs
 from tf import transformations
 
@@ -55,6 +55,8 @@ class SawyerController:
         self._sawyer = MoveGroupCommander('sawyer')
         self._sawyer.set_num_planning_attempts(2)
         self._sawyer.set_planning_time(10)
+
+        self._set_planning_limit()
 
         rospy.loginfo('Getting robot state...')
         self._robot = intera_interface.RobotEnable(CHECK_VERSION)
@@ -103,6 +105,25 @@ class SawyerController:
         else:
             self._move_to_position_action_server.set_aborted()
             rospy.logwarn('Aborted goal')
+
+    def _set_planning_limit(self):
+        self._planning_scene = PlanningSceneInterface()
+
+        upper_limit = geometry_msgs.PoseStamped()
+        upper_limit.header.frame_id = self._sawyer.get_planning_frame()
+        upper_limit.pose.position.x = 1.15
+        upper_limit.pose.position.y = 0
+        upper_limit.pose.position.z = 0.95
+        self._planning_scene.add_box('upper_limit', upper_limit, (4, 4, 0.2))
+        rospy.sleep(1)
+
+        lower_limit = geometry_msgs.PoseStamped()
+        lower_limit.header.frame_id = self._sawyer.get_planning_frame()
+        lower_limit.pose.position.x = 1.15
+        lower_limit.pose.position.y = 0
+        lower_limit.pose.position.z = -0.45
+        self._planning_scene.add_box('lower_limit', lower_limit, (2, 2, 0.65))
+        rospy.sleep(0.1)
 
     def _set_gripper(self, rPR):
         self._gripper_command.rPR = rPR
