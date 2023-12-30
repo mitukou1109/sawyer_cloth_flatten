@@ -1,0 +1,3 @@
+# sawyer_cloth_flatten
+
+人工知能応用プロジェクトで製作したROSパッケージ
